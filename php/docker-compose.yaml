@@ -1,0 +1,74 @@
+version: "3"
+services:
+  nginx-php-fpm:
+    build:
+      context: ./nginx-php-fpm
+    container_name: nginx-php-fpm
+    privileged: true
+    stdin_open: true # 打开标准输入
+    tty: true # 模拟一个伪终端
+    restart: always # "no" -  默认。容器退出时，不重启容器；  on-failure - 只有在容器非正常退出时（退出状态非0) 才重新启动容器；如：--restart on-failure:10;  always - 无论退出状态是如何，都重启容器；如：--restart always
+    ports:
+      - 443:443
+      - 80:80
+    networks: # 要加入的网络，引用顶级结构中 「networks」下的键名
+      - mynet_php
+    volumes:
+      # supervisor
+      - ./nginx-php-fpm/supervisor/supervisord.conf:/etc/supervisord.conf:rw
+      # nginx
+      - ./nginx-php-fpm/nginx/conf.d/:/etc/nginx/conf.d/:rw
+      - ./nginx-php-fpm/nginx/nginx.conf/:/etc/nginx/nginx.conf:rw
+      - ./nginx-php-fpm/nginx/log/:/var/log/nginx/:rw
+      # php-fpm
+      - ./nginx-php-fpm/php/php.ini:/etc/php/8.0/fpm/php.ini:rw
+      - ../qvvd/:/usr/share/nginx/html/qvvd/:rw
+    working_dir: /usr/share/nginx/html/
+  mysql:
+    build:
+      context: ./mysql
+    container_name: mysql
+    privileged: true
+    stdin_open: true # 打开标准输入
+    tty: true # 模拟一个伪终端
+    restart: always # "no" -  默认。容器退出时，不重启容器；  on-failure - 只有在容器非正常退出时（退出状态非0) 才重新启动容器；如：--restart on-failure:10;  always - 无论退出状态是如何，都重启容器；如：--restart always
+    ports:
+      - 3306:3306
+    networks: # 要加入的网络，引用顶级结构中 「networks」下的键名
+      # 不指定为固定IP
+      - mynet_php
+      # 指定为固定IP
+      # my_net:
+      #  ipv4_address: 172.21.0.10
+    environment: # 环境变量
+      - MYSQL_ROOT_PASSWORD=mysql@csg@2021@qvvd.cn
+    volumes:
+      - ./mysql/data/:/var/lib/mysql:rw
+  redis:
+    build:
+      context: ./redis
+    container_name: redis
+    privileged: true
+    stdin_open: true # 打开标准输入
+    tty: true # 模拟一个伪终端
+    restart: always # "no" -  默认。容器退出时，不重启容器；  on-failure - 只有在容器非正常退出时（退出状态非0) 才重新启动容器；如：--restart on-failure:10;  always - 无论退出状态是如何，都重启容器；如：--restart always
+    ports:
+      - 6379:6379
+    networks: # 要加入的网络，引用顶级结构中 「networks」下的键名
+      # 不指定为固定IP
+      - mynet_php
+      # 指定为固定IP
+      # my_net:
+      #  ipv4_address: 172.21.0.20
+    volumes:
+      - ./redis/conf/redis.conf:/usr/local/redis/redis.conf:rw
+      - ./redis/data/:/data:rw
+    command: /usr/local/redis/redis.conf
+
+networks:
+  # docker-compose.yaml  执行成功过后， 会在外部网络中创建 docker_my_net 的网络名
+  mynet_php:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/24
